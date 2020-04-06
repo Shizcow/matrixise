@@ -3,6 +3,13 @@ name = "matrixise"
 version = "0.1.0"
 authors = ["Shizcow <pohl.devin@gmail.com>"]
 edition = "2018"
+license = "GPL-2.0+"
+description = "Turn anything into The Matrix"
+readme = "README.md"
+repository = "https://github.com/Shizcow/matrixise"
+keywords = ["matrix", "cmatrix"]
+categories = ["command-line-interface", "command-line-utilities"]
+exclude = ["*~", "\\#*\\#", ".\\#*", "/target/", "Cargo.lock", "**/*.rs.bk"]
 
 [dependencies]
 ncurses = "5.99.0"
