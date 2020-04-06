@@ -33,8 +33,7 @@ impl Streak {
 	}
 	let first_msg = first_msg_check.unwrap();
 	{
-	    let first_string: ColorString = (&first_msg).into();
-	    //panic!("{:?}", first_string);
+	    let first_string: ColorString = first_msg.contents;
 	    let mut start: i32 = rng.gen_range(0, first_string.len()+max_padding as usize) as i32 - first_string.len() as i32 + 1; // make sure there's at least one char printed, space up to max_padding is allowed at top
 	    if start > screen_height {
 		start = screen_height; // don't overflow
@@ -85,7 +84,7 @@ impl Streak {
 	    }
 	    let next_msg = next_msg_check.unwrap();
 	    {
-		let next_string: ColorString = (&next_msg).into();
+		let next_string: ColorString = next_msg.contents;
 		
 		if inner_text.len()+next_string.len() >= screen_height as usize { // terminate early
 		    for i in 0..(screen_height as usize-inner_text.len()) {

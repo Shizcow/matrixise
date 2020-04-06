@@ -13,7 +13,7 @@ fn main() {
     
     let mut screen = Scene::new();
     screen.start(20, COLOR_BLACK, true);
-    screen.push(Message::new("Hello ".to_string(), "world".to_string(), COLOR_PAIR(COLOR_PAIR_WHITE)));
+    screen.push(Message::new_simple("Hello ", "world", COLOR_PAIR(COLOR_PAIR_WHITE), 0));
     
     if let Err(_) = io::stdin().lock().read_line(&mut String::new()) { // wait for a keypress
 	panic!("Could not take control of stdin");

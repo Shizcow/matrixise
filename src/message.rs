@@ -38,10 +38,10 @@ impl MessageQueue {
     }
     pub fn push_update(&mut self, message: Message) {
 	// Check through current messages
-	// If there's one with the same title, update the body
+	// If there's one with the same ID, update the contents
 	// else, push normally
-	if let Some(compare_msg) = self.data.iter_mut().rev().find(|cmp| cmp.title == cmp.body) { // starting from the back is recycle-pop safe
-	    compare_msg.body = message.body;
+	if let Some(compare_msg) = self.data.iter_mut().rev().find(|cmp| cmp.id == message.id) { // starting from the back is recycle-pop safe
+	    compare_msg.contents = message.contents;
 	} else {
 	    self.push(message);
 	}
@@ -68,35 +68,34 @@ impl fmt::Debug for ColorChar {
 // Message struct
 // Holds basic info about a message
 pub struct Message {
-    pub title: String, // the bolded part: prints first
-    pub body: String,  // non-bolded part: prints second
-    pub color: attr_t, // color of the message
+    pub contents: ColorString,
+    pub id:       i32,
+    //pub title: String, // the bolded part: prints first
+    //pub body: String,  // non-bolded part: prints second
+    //pub color: attr_t, // color of the message
 }
 
 impl Message {
-    pub fn new(title: String, body: String, color: attr_t) -> Self {
-	Self{title, body, color}
+    pub fn new(contents: ColorString, id: i32) -> Self {
+	Self{contents, id}
+    }
+    pub fn new_simple(title: &str, body: &str, color: attr_t, id: i32) -> Self { // creates new from body, title, and id
+	let mut contents = ColorString::with_capacity(title.len()+body.len());
+	for i in 0..title.len() {
+	    contents.push(ColorChar{data: title.as_bytes()[i] as u32, attr: color | A_BOLD()});
+	}
+	for i in 0..body.len() {
+	    contents.push(ColorChar{data: body.as_bytes()[i] as u32, attr: color});
+	}
+	Self::new(contents, id)
     }
     pub fn len(&self) -> usize {
-	self.title.len()+self.body.len()
+	self.contents.len()
     }
 }
 
 impl Clone for Message {
     fn clone(&self) -> Message {
-	Message::new(self.title.clone(), self.body.clone(), self.color)
-    }
-}
-
-impl From<&Message> for ColorString {
-    fn from(message: &Message) -> ColorString {
-	let mut ret_str = ColorString::with_capacity(message.len());
-	for i in 0..message.title.len() {
-	    ret_str.push(ColorChar{data: message.title.as_bytes()[i] as u32, attr: message.color | A_BOLD()});
-	}
-	for i in 0..message.body.len() {
-	    ret_str.push(ColorChar{data: message.body.as_bytes()[i] as u32, attr: message.color});
-	}
-	ret_str
+	Message::new(self.contents.clone(), self.id)
     }
 }
