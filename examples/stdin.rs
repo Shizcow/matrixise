@@ -11,13 +11,14 @@ use ncurses::constants::*;
 static COLOR_PAIR_WHITE: i16 = 1;
 
 use std::io::{self, BufRead};
+use std::time::Duration;
 
 fn main() {
     matrixise::init(); // init must be called prior to defining ncurses colors
     init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK);
 
     // creating a screne with [max_padding = 20, black background, reuse messages]:
-    let mut screen = Scene::new(20, COLOR_BLACK, true);
+    let mut screen = Scene::new(20, COLOR_BLACK, true, Duration::from_millis(25));
     screen.start(); // forks into a new thread
     
     let stdin = io::stdin();

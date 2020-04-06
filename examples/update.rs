@@ -14,7 +14,7 @@ fn main() {
     matrixise::init(); // init must be called prior to defining colors
     init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK);
     
-    let mut screen = Scene::new(20, COLOR_BLACK, true);
+    let mut screen = Scene::new(20, COLOR_BLACK, true, Duration::from_millis(40));
 
     // We'll add 10 messages with different IDs:
     for i in 0..10 {

@@ -41,9 +41,10 @@ struct ForkedScene { // the version of Scene that lives in another thread
     max_padding: i32,
     rx:          Option<std::sync::mpsc::Receiver<ThreadMsg>>,
     started:     bool,
+    speed:       Duration
 }
 impl ForkedScene {
-    pub fn new(max_padding: i32, background: i16, is_closed: bool, rx: std::sync::mpsc::Receiver<ThreadMsg>) -> Self {
+    pub fn new(max_padding: i32, background: i16, is_closed: bool, rx: std::sync::mpsc::Receiver<ThreadMsg>, speed: Duration) -> Self {
 	// infer screen size
 	let bkg_attr = Self::init(background);
 	let mut height : i32 = 0;
@@ -56,7 +57,7 @@ impl ForkedScene {
 	for _ in 0..width {
 	    columns.push(Column::new());
 	}
-	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx), started: false}
+	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx), started: false, speed}
     }
     fn init(background: i16) -> attr_t { // ncurses initialize
 	let background_attr = 99; // NOTE: find a portabale value that users won't touch
@@ -111,7 +112,7 @@ impl ForkedScene {
 	    }
 	    Err(TryRecvError::Empty) => {
 		if self.started {
-		    thread::sleep(Duration::from_millis(25));
+		    thread::sleep(self.speed);
 		}
 	    }
         }
@@ -163,9 +164,9 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(max_padding: i32, background: i16, is_closed: bool) -> Self {
+    pub fn new(max_padding: i32, background: i16, is_closed: bool, speed: Duration) -> Self {
 	let (tx, rx) = mpsc::channel();
-	let mut background = ForkedScene::new(max_padding, background, is_closed, rx);
+	let mut background = ForkedScene::new(max_padding, background, is_closed, rx, speed);
 
 	let working = Arc::new(AtomicBool::new(true));
 	let control = Arc::downgrade(&working);

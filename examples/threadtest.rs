@@ -9,12 +9,11 @@ use ncurses::{COLOR_PAIR, init_pair};
 use ncurses::constants::*;
 static COLOR_PAIR_WHITE: i16 = 1;
 
-
 fn testfull_push(spawn: i32) -> Duration {
     let start_time = Instant::now();
     matrixise::init();
     init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK);
-    let mut screen = Scene::new(20, COLOR_BLACK, true);
+    let mut screen = Scene::new(20, COLOR_BLACK, true, Duration::from_millis(0));
 
     for _ in 0..spawn {
 	screen.push(Message::new_simple("Message", COLOR_PAIR(COLOR_PAIR_WHITE), ""));
@@ -28,7 +27,7 @@ fn testfull_append(spawn: i32) -> Duration {
     let start_time = Instant::now();
     matrixise::init();
     init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK);
-    let mut screen = Scene::new(20, COLOR_BLACK, true);
+    let mut screen = Scene::new(20, COLOR_BLACK, true, Duration::from_millis(0));
 
     screen.append((0..spawn).into_iter().map(|_| Message::new_simple("Message", COLOR_PAIR(COLOR_PAIR_WHITE), "")).collect());
     

@@ -9,6 +9,8 @@ static COLOR_PAIR_BLACK: i16 = 1;
 static COLOR_PAIR_GREEN: i16 = 2;
 static COLOR_PAIR_RED: i16 = 3;
 
+use std::time::Duration;
+
 fn main() {
     matrixise::init();
     init_pair(COLOR_PAIR_BLACK, COLOR_BLACK, COLOR_WHITE);
@@ -16,7 +18,7 @@ fn main() {
     init_pair(COLOR_PAIR_RED,   COLOR_BLUE,  COLOR_RED  );
 
     // Here, we set up a white background
-    let mut screen = Scene::new(20, COLOR_WHITE, true);
+    let mut screen = Scene::new(20, COLOR_WHITE, true, Duration::from_millis(20));
     screen.start(); // forks into a new thread
 
     // Black text on white background
@@ -35,9 +37,6 @@ fn main() {
 	string.push(ColorChar::new(' ' as u32, COLOR_PAIR(i+4))); // and use it
     }
     screen.push(Message::new(string, "3")); // and turn it into a message
-
-    // Create with inline color codes
-    //screen.push(Message::new_from_ANSI("", 4)); NYI
     
     screen.join(); // wait for screen to die (user presses q)
 }

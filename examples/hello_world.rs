@@ -6,13 +6,14 @@ use matrixise::*;
 use ncurses::{COLOR_PAIR, init_pair};
 use ncurses::constants::*;
 static COLOR_PAIR_WHITE: i16 = 1;
+use std::time::Duration;
 
 fn main() {
     matrixise::init(); // init must be called prior to defining ncurses colors
     init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK);
 
-    // creating a screne with [max_padding = 20, black background, reuse messages]:
-    let mut screen = Scene::new(20, COLOR_BLACK, true);
+    // creating a screne with [max_padding = 20, black background, reuse messages, move down every 50ms]:
+    let mut screen = Scene::new(20, COLOR_BLACK, true, Duration::from_millis(50));
     screen.start(); // forks into a new thread
     
     // Here's one way to add messages:
