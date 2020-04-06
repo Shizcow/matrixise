@@ -20,13 +20,13 @@ fn main() {
     screen.start(); // forks into a new thread
 
     // Black text on white background
-    screen.push(Message::new_with_title("Msg", "1", COLOR_PAIR(COLOR_PAIR_BLACK), 0));
+    screen.push(Message::new_with_title("Msg", "1", COLOR_PAIR(COLOR_PAIR_BLACK), "0"));
     
     // Black text on green background
-    screen.push(Message::new_with_title("Msg", "2", COLOR_PAIR(COLOR_PAIR_GREEN), 1));
+    screen.push(Message::new_with_title("Msg", "2", COLOR_PAIR(COLOR_PAIR_GREEN), "1"));
     
     // Black text on green background
-    screen.push(Message::new_with_title("Msg", "3", COLOR_PAIR(COLOR_PAIR_RED), 2));
+    screen.push(Message::new_with_title("Msg", "3", COLOR_PAIR(COLOR_PAIR_RED), "2"));
 
     // 7-color rainbow using the most basic ncurses colors
     let mut string = ColorString::new();
@@ -34,7 +34,7 @@ fn main() {
 	init_pair(i+4, COLOR_BLACK+i, COLOR_BLACK+i); // create a color pair
 	string.push(ColorChar::new(' ' as u32, COLOR_PAIR(i+4))); // and use it
     }
-    screen.push(Message::new(string, 3)); // and turn it into a message
+    screen.push(Message::new(string, "3")); // and turn it into a message
 
     // Create with inline color codes
     //screen.push(Message::new_from_ANSI("", 4)); NYI

@@ -75,21 +75,21 @@ impl fmt::Debug for ColorChar {
 // Holds basic info about a message
 pub struct Message {
     pub contents: ColorString,
-    pub id:       i32,
+    pub id:       String,
 }
 
 impl Message {
-    pub fn new(contents: ColorString, id: i32) -> Self {
-	Self{contents, id}
+    pub fn new(contents: ColorString, id: &str) -> Self {
+	Self{contents, id: id.to_string()}
     }
-    pub fn new_simple(string: &str, color: attr_t, id: i32) -> Self {
+    pub fn new_simple(string: &str, color: attr_t, id: &str) -> Self {
 	let mut contents = ColorString::with_capacity(string.len());
 	for i in 0..string.len() {
 	    contents.push(ColorChar::new(string.as_bytes()[i] as u32, color));
 	}
 	Self::new(contents, id)
     }
-    pub fn new_with_title(title: &str, body: &str, color: attr_t, id: i32) -> Self { // creates new from body, title, and id
+    pub fn new_with_title(title: &str, body: &str, color: attr_t, id: &str) -> Self { // creates new from body, title, and id
 	let mut contents = ColorString::with_capacity(title.len()+body.len());
 	for i in 0..title.len() {
 	    contents.push(ColorChar::new(title.as_bytes()[i] as u32, color | A_BOLD()));
@@ -106,6 +106,6 @@ impl Message {
 
 impl Clone for Message {
     fn clone(&self) -> Message {
-	Message::new(self.contents.clone(), self.id)
+	Message::new(self.contents.clone(), &self.id.clone())
     }
 }

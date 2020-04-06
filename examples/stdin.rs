@@ -24,7 +24,7 @@ fn main() {
     while screen.alive() {
 	for line in stdin.lock().lines() { // lock blocks q, so this it Control-C to exit
             let line = line.expect("Could not read line from standard in");
-            screen.push(Message::new_simple(&line, COLOR_PAIR(COLOR_PAIR_WHITE), 0));
+            screen.push(Message::new_simple(&line, COLOR_PAIR(COLOR_PAIR_WHITE), "0"));
 	}
     }
 
