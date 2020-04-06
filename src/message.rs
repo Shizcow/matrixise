@@ -56,6 +56,12 @@ pub struct ColorChar {
     pub attr: attr_t
 }
 
+impl ColorChar {
+    pub fn new(data: u32, attr: attr_t) -> Self {
+	Self{data, attr}
+    }
+}
+
 impl fmt::Debug for ColorChar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("")
@@ -79,10 +85,10 @@ impl Message {
     pub fn new_simple(title: &str, body: &str, color: attr_t, id: i32) -> Self { // creates new from body, title, and id
 	let mut contents = ColorString::with_capacity(title.len()+body.len());
 	for i in 0..title.len() {
-	    contents.push(ColorChar{data: title.as_bytes()[i] as u32, attr: color | A_BOLD()});
+	    contents.push(ColorChar::new(title.as_bytes()[i] as u32, color | A_BOLD()));
 	}
 	for i in 0..body.len() {
-	    contents.push(ColorChar{data: body.as_bytes()[i] as u32, attr: color});
+	    contents.push(ColorChar::new(body.as_bytes()[i] as u32, color));
 	}
 	Self::new(contents, id)
     }

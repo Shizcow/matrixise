@@ -1,6 +1,6 @@
 mod message;
 use crate::message::MessageQueue;
-pub use crate::message::Message;
+pub use crate::message::{Message, ColorString, ColorChar};
 mod streak;
 use crate::streak::Streak;
 
@@ -62,7 +62,7 @@ impl ForkedScene {
     }
     fn init(background: i16) -> attr_t { // ncurses initialize
 	let background_attr = 99; // NOTE: find a portabale value that users won't touch
-	init_pair(background_attr, background, COLOR_BLACK);
+	init_pair(background_attr, COLOR_BLACK, background);
 	bkgd(' ' as chtype | COLOR_PAIR(background_attr) as chtype);
 	COLOR_PAIR(background_attr)
     }
