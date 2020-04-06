@@ -87,9 +87,16 @@ impl ForkedScene {
 			} else {
 			    self.started = true;
 			}
+			return true;
 		    },
-		    "push" => self.push(thread_msg.content.unwrap()),
-		    "push_update" => self.push_update(thread_msg.content.unwrap()),
+		    "push" => {
+			self.push(thread_msg.content.unwrap());
+			return true;
+		    },
+		    "push_update" => {
+			self.push_update(thread_msg.content.unwrap());
+			return true;
+		    },
 		    "kill" => {
 			self.kill();
 			return false; // make sure main exits
@@ -97,11 +104,10 @@ impl ForkedScene {
 		    &_ => panic!("Invalid command {:}"),
 		}
 	    }
-	    Err(TryRecvError::Empty) => {}
+	    Err(TryRecvError::Empty) => thread::sleep(Duration::from_millis(25))
         }
 	if self.started {
 	    self.advance();
-	    refresh();
 	}
 	true
     }
@@ -136,6 +142,7 @@ impl ForkedScene {
 		streak.render(self.height);
 	    }
 	}
+	refresh();
     }
 }
 
@@ -162,7 +169,6 @@ impl Scene {
 
 	let join_handle = thread::spawn(move ||
 					while (*working).load(Ordering::Relaxed) {
-					    thread::sleep(Duration::from_millis(25));
 					    if !background.update() {
 						break;
 					    }

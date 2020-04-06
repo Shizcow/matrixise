@@ -30,9 +30,7 @@ fn main() {
     let mut j = 1;
     while screen.alive() { // wait for screen to die (user presses q)
 	thread::sleep(Duration::from_millis(1000)); // update every second
-	for i in 0..10 {
-	    screen.push_update(Message::new_with_title(&("M".to_string()+&i.to_string()), &("+".to_string()+&j.to_string()), COLOR_PAIR(COLOR_PAIR_WHITE), &i.to_string())); // update prexisting messages
-	}
+	screen.append_update((0..10).into_iter().map(|i| Message::new_with_title(&("M".to_string()+&i.to_string()), &("+".to_string()+&j.to_string()), COLOR_PAIR(COLOR_PAIR_WHITE), &i.to_string())).collect()); // update pre-existing messages, this time with a one-liner
 	j += 1;
     }
 
