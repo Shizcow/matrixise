@@ -20,13 +20,13 @@ fn main() {
     screen.start(); // forks into a new thread
 
     // Black text on white background
-    screen.push(Message::new_simple("Msg", "1", COLOR_PAIR(COLOR_PAIR_BLACK), 0));
+    screen.push(Message::new_with_title("Msg", "1", COLOR_PAIR(COLOR_PAIR_BLACK), 0));
     
     // Black text on green background
-    screen.push(Message::new_simple("Msg", "2", COLOR_PAIR(COLOR_PAIR_GREEN), 1));
+    screen.push(Message::new_with_title("Msg", "2", COLOR_PAIR(COLOR_PAIR_GREEN), 1));
     
     // Black text on green background
-    screen.push(Message::new_simple("Msg", "3", COLOR_PAIR(COLOR_PAIR_RED), 2));
+    screen.push(Message::new_with_title("Msg", "3", COLOR_PAIR(COLOR_PAIR_RED), 2));
 
     // 7-color rainbow using the most basic ncurses colors
     let mut string = ColorString::new();

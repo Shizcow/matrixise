@@ -16,7 +16,7 @@ fn main() {
     screen.start(); // forks into a new thread
     
     // Here's one way to add messages:
-    screen.push(Message::new_simple("Hello ", "world", COLOR_PAIR(COLOR_PAIR_WHITE), 0));
+    screen.push(Message::new_simple("Hello world", COLOR_PAIR(COLOR_PAIR_WHITE), 0));
     
     screen.join(); // wait for screen to die (user presses q)
 }
