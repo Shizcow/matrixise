@@ -46,6 +46,12 @@ impl MessageQueue {
 	    self.push(message);
 	}
     }
+    pub fn append(&mut self, messages: Vec<Message>){
+	self.data.append(&mut messages.into());
+    }
+    pub fn append_update(&mut self, messages: Vec<Message>){
+	messages.into_iter().for_each(|message| self.push_update(message));
+    }
 }
 
 pub type ColorString = Vec<ColorChar>;

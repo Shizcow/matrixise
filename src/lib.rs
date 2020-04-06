@@ -24,15 +24,13 @@ pub fn init(){
     start_color();
 }
 
-struct ThreadMsg {
-    title:       String,
-    content:     Option<Message>,
-}
-
-impl ThreadMsg {
-    pub fn new(title: &str, content: Option<Message>) -> Self {
-	Self{title: title.to_string(), content}
-    }
+enum ThreadMsg {
+    Kill,
+    Start,
+    Push(Message),
+    PushUpdate(Message),
+    Append(Vec<Message>), 
+    AppendUpdate(Vec<Message>),
 }
 
 struct ForkedScene { // the version of Scene that lives in another thread
@@ -80,8 +78,8 @@ impl ForkedScene {
                 return false;
 	    }
 	    Ok(thread_msg) => {
-		match thread_msg.title.as_str() {
-		    "start" => {
+		match thread_msg {
+		    ThreadMsg::Start => {
 			if self.started == true {
 			    panic!("Tried to start screen twice!");
 			} else {
@@ -89,33 +87,38 @@ impl ForkedScene {
 			}
 			return true;
 		    },
-		    "push" => {
-			self.push(thread_msg.content.unwrap());
+		    ThreadMsg::Push(message) => {
+			self.queue.push(message);
 			return true;
 		    },
-		    "push_update" => {
-			self.push_update(thread_msg.content.unwrap());
+		    ThreadMsg::PushUpdate(message) => {
+			self.queue.push_update(message);
 			return true;
 		    },
-		    "kill" => {
+		    ThreadMsg::Append(messages) => {
+			self.queue.append(messages);
+			return true;
+		    }
+		    ThreadMsg::AppendUpdate(messages) => {
+			self.queue.append_update(messages);
+			return true;
+		    }
+		    ThreadMsg::Kill => {
 			self.kill();
 			return false; // make sure main exits
 		    },
-		    &_ => panic!("Invalid command {:}"),
 		}
 	    }
-	    Err(TryRecvError::Empty) => thread::sleep(Duration::from_millis(25))
+	    Err(TryRecvError::Empty) => {
+		if self.started {
+		    thread::sleep(Duration::from_millis(25));
+		}
+	    }
         }
 	if self.started {
 	    self.advance();
 	}
 	true
-    }
-    pub fn push(&mut self, message: Message){
-	self.queue.push(message);
-    }
-    pub fn push_update(&mut self, message: Message){
-	self.queue.push_update(message);
     }
     pub fn advance(&mut self){ // move all streaks, clean up dead ones, try to spawn new ones
 	let mut rng = rand::thread_rng();
@@ -184,33 +187,29 @@ impl Scene {
 	if !self.alive() {
 	    return;
 	}
-	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("push", Some(message)));
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::Push(message));
     }
     pub fn push_update(&mut self, message: Message){
 	if !self.alive() {
 	    return;
 	}
-	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("push_update", Some(message)));
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::PushUpdate(message));
     }
     pub fn append(&mut self, messages: Vec<Message>){
 	if !self.alive() {
 	    return;
 	}
-	for message in messages {
-	    self.push(message);
-	}
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::Append(messages));
     }
     pub fn append_update(&mut self, messages: Vec<Message>){
 	if !self.alive() {
 	    return;
 	}
-	for message in messages {
-	    self.push_update(message);
-	}
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::AppendUpdate(messages));
     }
     pub fn start(&mut self){ // start and fork to background
 	refresh();
-	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("start", None));
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::Start);
     }
     pub fn alive(&self) -> bool { // ping the background thread to see if it's alive
 	self.thread_control.is_some() && self.thread_control.as_ref().unwrap().upgrade().is_some()
@@ -219,7 +218,7 @@ impl Scene {
 	if !self.alive() {
 	    return;
 	}
-	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("kill", None));
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::Kill);
 	let _ = self.join_handle.take().unwrap().join(); // give ncurses time to clean up
 	self.join_handle = None;
 	self.tx = None;

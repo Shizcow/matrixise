@@ -38,10 +38,16 @@ fn testfull_append(spawn: i32) -> Duration {
 
 fn main() {
 
+    testfull_push(0); // normalize ncurses overhead
+
     let mut times = Vec::new();
 
-    for e in 0..5 {
-	for i in (1..5).into_iter().map(|x| 10_i32.pow(e)*x*2) {
+    // first, really small tests
+    times.push(format!("Time to process {} requests using push: {} ms", 1, testfull_push(1).as_millis()));
+    times.push(format!("Time to process {} requests using append: {} ms", 1, testfull_append(1).as_millis()));
+    
+    for e in 0..5 { // then, larger ones
+	for i in (1..3).into_iter().map(|x| 10_i32.pow(e)*x*5) {
 	    times.push(format!("Time to process {} requests using push: {} ms", i, testfull_push(i).as_millis()));
 	    times.push(format!("Time to process {} requests using append: {} ms", i, testfull_append(i).as_millis()));
 	}
