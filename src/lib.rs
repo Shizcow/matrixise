@@ -11,7 +11,10 @@ use rand::Rng;
 
 
 use std::sync::mpsc::{self, TryRecvError};
+use std::sync::{Arc, Weak};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub fn init(){
@@ -38,7 +41,8 @@ struct ForkedScene { // the version of Scene that lives in another thread
     queue:       MessageQueue, // Messages yet to be printed
     background:  attr_t,       // used for derendering
     max_padding: i32,
-    rx:          Option<std::sync::mpsc::Receiver<ThreadMsg>>
+    rx:          Option<std::sync::mpsc::Receiver<ThreadMsg>>,
+    started:     bool
 }
 impl ForkedScene {
     pub fn new(max_padding: i32, background: i16, is_closed: bool, rx: std::sync::mpsc::Receiver<ThreadMsg>) -> Self {
@@ -54,7 +58,7 @@ impl ForkedScene {
 	for _ in 0..width {
 	    columns.push(Column::new());
 	}
-	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx)}
+	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx), started: false}
     }
     fn init(background: i16) -> attr_t { // ncurses initialize
 	let background_attr = 99; // NOTE: find a portabale value that users won't touch
@@ -70,8 +74,6 @@ impl ForkedScene {
 	    return false;
 	}
 	let rx = self.rx.as_ref().unwrap();
-	refresh();
-        thread::sleep(Duration::from_millis(100));
         match rx.try_recv() {
 	    Err(TryRecvError::Disconnected) => {
                 self.kill();
@@ -79,16 +81,28 @@ impl ForkedScene {
 	    }
 	    Ok(thread_msg) => {
 		match thread_msg.title.as_str() {
+		    "start" => {
+			if self.started == true {
+			    panic!("Tried to start screen twice!");
+			} else {
+			    self.started = true;
+			}
+		    },
 		    "push" => self.push(thread_msg.content.unwrap()),
 		    "push_update" => self.push_update(thread_msg.content.unwrap()),
-		    "kill" => self.kill(),
+		    "kill" => {
+			self.kill();
+			return false; // make sure main exits
+		    },
 		    &_ => panic!("Invalid command {:}"),
 		}
-		
 	    }
 	    Err(TryRecvError::Empty) => {}
         }
-	self.advance();
+	if self.started {
+	    self.advance();
+	    refresh();
+	}
 	true
     }
     pub fn push(&mut self, message: Message){
@@ -129,24 +143,47 @@ impl ForkedScene {
 // Handles updating, can render
 
 pub struct Scene {
-    tx:          Option<std::sync::mpsc::Sender<ThreadMsg>>, // used to communicate with other threads
+    tx:              Option<std::sync::mpsc::Sender<ThreadMsg>>, // used to communicate with other threads
+    join_handle:     Option<JoinHandle<()>>, // needed for rejoining
+    thread_control:  Option<Weak<AtomicBool>>, // needed for seeing if the thread is still alive
 }
 
 impl Scene {
+    pub fn new(max_padding: i32, background: i16, is_closed: bool) -> Self {
+	let (tx, rx) = mpsc::channel();
+	let mut background = ForkedScene::new(max_padding, background, is_closed, rx);
+
+	let working = Arc::new(AtomicBool::new(true));
+	let control = Arc::downgrade(&working);
+
+	let join_handle = thread::spawn(move ||
+					      while (*working).load(Ordering::Relaxed) {
+						  thread::sleep(Duration::from_millis(50));
+						  if !background.update() {
+						      break;
+						  }
+						  if getch() == 113 { // if q is pressed, exit
+						      background.kill();
+						      break;
+						  }
+					      });
+	
+	Self{tx: Some(tx), join_handle: Some(join_handle), thread_control: Some(control)}
+    }
     pub fn push(&mut self, message: Message){
-	if self.tx.is_none() {
+	if !self.alive() {
 	    return;
 	}
-	if let Ok(_) = self.tx.as_ref().unwrap().send(ThreadMsg::new("push", Some(message))) {}
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("push", Some(message)));
     }
     pub fn push_update(&mut self, message: Message){
-	if self.tx.is_none() {
+	if !self.alive() {
 	    return;
 	}
-	if let Ok(_) = self.tx.as_ref().unwrap().send(ThreadMsg::new("push_update", Some(message))) {}
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("push_update", Some(message)));
     }
     pub fn append(&mut self, messages: Vec<Message>){
-	if self.tx.is_none() {
+	if !self.alive() {
 	    return;
 	}
 	for message in messages {
@@ -154,30 +191,28 @@ impl Scene {
 	}
     }
     pub fn append_update(&mut self, messages: Vec<Message>){
-	if self.tx.is_none() {
+	if !self.alive() {
 	    return;
 	}
 	for message in messages {
 	    self.push_update(message);
 	}
     }
-    pub fn new() -> Self {
-	Self{tx: None}
+    pub fn start(&mut self){ // start and fork to background
+	refresh();
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("start", None));
     }
-    pub fn start(&mut self, max_padding: i32, background: i16, is_closed: bool){ // start and fork to background
-	if let Some(_) = self.tx {
-	    return; // already started
-	}
-	let (tx, rx) = mpsc::channel();
-	self.tx = Some(tx); // set up communication channel
-	let mut background = ForkedScene::new(max_padding, background, is_closed, rx);
-
-	thread::spawn(move || while background.update() {});
+    pub fn alive(&self) -> bool { // ping the background thread to see if it's alive
+	self.thread_control.is_some() && self.thread_control.as_ref().unwrap().upgrade().is_some()
     }
-    pub fn kill(&self){
-	if let Some(tx) = &self.tx {
-	    if let Ok(_) = tx.send(ThreadMsg::new("kill", None)){} // send kill signal
+    pub fn kill(&mut self){
+	if !self.alive() {
+	    return;
 	}
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::new("kill", None));
+	let _ = self.join_handle.take().unwrap().join(); // give ncurses time to clean up
+	self.join_handle = None;
+	self.tx = None;
     }
 }
 

@@ -70,9 +70,6 @@ impl fmt::Debug for ColorChar {
 pub struct Message {
     pub contents: ColorString,
     pub id:       i32,
-    //pub title: String, // the bolded part: prints first
-    //pub body: String,  // non-bolded part: prints second
-    //pub color: attr_t, // color of the message
 }
 
 impl Message {
