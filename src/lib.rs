@@ -42,7 +42,7 @@ struct ForkedScene { // the version of Scene that lives in another thread
     background:  attr_t,       // used for derendering
     max_padding: i32,
     rx:          Option<std::sync::mpsc::Receiver<ThreadMsg>>,
-    started:     bool
+    started:     bool,
 }
 impl ForkedScene {
     pub fn new(max_padding: i32, background: i16, is_closed: bool, rx: std::sync::mpsc::Receiver<ThreadMsg>) -> Self {
@@ -113,6 +113,7 @@ impl ForkedScene {
     }
     pub fn advance(&mut self){ // move all streaks, clean up dead ones, try to spawn new ones
 	let mut rng = rand::thread_rng();
+	let untouched = self.columns.iter().fold(0, |sum, column| sum + if column.touched  {0} else {1}); // counting untouched to make it progressively more likely to spawn a streak
 	for (i, column) in self.columns.iter_mut().enumerate() {
 	    for streak in &mut column.streaks { // advance all
 		streak.derender(self.background);
@@ -122,9 +123,12 @@ impl ForkedScene {
 	    column.streaks.retain(|streak| !streak.finished(height)); // clean up dead streaks
 
 	    // now, try to spawn new streaks
-	    if column.streaks.len()==0 || column.streaks.iter().all(|streak| streak.top_space() > 5) { // there's need to
-		column.streaks.push(Streak::new_with_queue(&mut self.queue, i as i32, rng.gen_range(5, self.height*2), self.height, self.max_padding)); // add new streak, consuming from queue
-		// TODO: better length requirements
+	    if column.streaks.len()==0 || column.streaks.iter().all(|streak| streak.top_space() > 5) { // check if there's need to
+		if (!column.touched && rng.gen_range(0, untouched) == 0) || column.touched { // if we started recently, thin things out to look better
+		// add new streak, consuming from queue
+		column.add_streak(Streak::new_with_queue(&mut self.queue, i as i32, rng.gen_range(5, self.height*2), self.height, self.max_padding));
+		    
+		}
 	    }
 
 	    
@@ -158,7 +162,7 @@ impl Scene {
 
 	let join_handle = thread::spawn(move ||
 					while (*working).load(Ordering::Relaxed) {
-					    thread::sleep(Duration::from_millis(50));
+					    thread::sleep(Duration::from_millis(25));
 					    if !background.update() {
 						break;
 					    }
@@ -220,14 +224,18 @@ impl Scene {
 }
 
 // Column struct
-// Just makes reading things easier
 struct Column {
-    streaks: Vec<Streak>
+    streaks: Vec<Streak>,
+    touched: bool,          // have we ever put a streak into this column?
 }
 
 impl Column {
     fn new() -> Self {
-	Self{streaks: Vec::new()}
+	Self{streaks: Vec::new(), touched: false}
+    }
+    fn add_streak(&mut self, streak: Streak){
+	self.streaks.push(streak);
+	self.touched = true;
     }
 }
 
