@@ -157,16 +157,16 @@ impl Scene {
 	let control = Arc::downgrade(&working);
 
 	let join_handle = thread::spawn(move ||
-					      while (*working).load(Ordering::Relaxed) {
-						  thread::sleep(Duration::from_millis(50));
-						  if !background.update() {
-						      break;
-						  }
-						  if getch() == 113 { // if q is pressed, exit
-						      background.kill();
-						      break;
-						  }
-					      });
+					while (*working).load(Ordering::Relaxed) {
+					    thread::sleep(Duration::from_millis(50));
+					    if !background.update() {
+						break;
+					    }
+					    if getch() == 113 { // if q is pressed, exit
+						background.kill();
+						break;
+					    }
+					});
 	
 	Self{tx: Some(tx), join_handle: Some(join_handle), thread_control: Some(control)}
     }
@@ -213,6 +213,9 @@ impl Scene {
 	let _ = self.join_handle.take().unwrap().join(); // give ncurses time to clean up
 	self.join_handle = None;
 	self.tx = None;
+    }
+    pub fn join(&self) {
+	while self.alive() {} // wait till screen is dead
     }
 }
 
