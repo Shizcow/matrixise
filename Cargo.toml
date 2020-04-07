@@ -1,6 +1,6 @@
 [package]
 name = "matrixise"
-version = "1.0.1"
+version = "1.1.0"
 authors = ["Shizcow <pohl.devin@gmail.com>"]
 edition = "2018"
 license = "GPL-2.0+"

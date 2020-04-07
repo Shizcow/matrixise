@@ -5,7 +5,7 @@
  */
 
 use rand::Rng;
-use ncurses::{attron, attroff, mvaddch, attr_t};
+use ncurses::{attron, attroff, mvaddch, attr_t, erasechar, mv};
 use crate::message::{MessageQueue, ColorString, ColorChar};
 
 // Streak struct
@@ -111,7 +111,8 @@ impl Streak {
     }
     pub fn derender(&self, attr: attr_t) { // removes first char, makes streak look like it's moving down
 	attron(attr);
-	mvaddch(self.head_y-self.length-1, self.head_x, ' ' as u32);
+	mv(self.head_y-self.length-1, self.head_x);
+	erasechar();
 	attron(attr);
     }
     pub fn advance(&mut self) {

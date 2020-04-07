@@ -9,7 +9,6 @@ use ncurses::*;
 extern crate rand;
 use rand::Rng;
 
-
 use std::sync::mpsc::{self, TryRecvError};
 use std::sync::{Arc, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -54,7 +53,7 @@ impl ForkedScene {
 	if width == -1 {
 	    panic!("Could not get screen size!");
 	}
-	let mut columns = Vec::new();
+	let mut columns = Vec::with_capacity(width as usize);
 	for _ in 0..width {
 	    columns.push(Column::new());
 	}
@@ -96,10 +95,10 @@ impl ForkedScene {
 			self.queue.push_update(message);
 		    },
 		    ThreadMsg::Append(messages) => {
-			self.queue.append(messages);
+			self.queue.append(messages.into());
 		    }
 		    ThreadMsg::AppendUpdate(messages) => {
-			self.queue.append_update(messages);
+			self.queue.append_update(messages.into());
 		    }
 		    ThreadMsg::Kill => {
 			self.kill();
@@ -142,6 +141,26 @@ impl ForkedScene {
 	}
 	refresh();
     }
+    pub fn resize(&mut self) {
+	// first, update the term
+	let mut height : i32 = 0;
+	let mut width  : i32 = 0;
+	getmaxyx(stdscr(), &mut height, &mut width);
+	if width == -1 {
+	    panic!("Could not get screen size!");
+	}
+	self.height = height;
+	resizeterm(height, width);
+	erase();
+	refresh();
+	// Then, update columns
+	let drained = self.queue.drain();
+	self.queue.append(drained);
+	self.columns = Vec::with_capacity(width as usize);
+	for _ in 0..width {
+	    self.columns.push(Column::new());
+	}
+    }
 }
 
 // Scene struct
@@ -167,6 +186,9 @@ impl Scene {
 
 	let join_handle = thread::spawn(move ||
 					while (*working).load(Ordering::Relaxed) {
+					    if is_term_resized(background.height, background.columns.len() as i32) {
+						background.resize();
+					    }
 					    if !background.update() {
 						break;
 					    }

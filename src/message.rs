@@ -15,7 +15,7 @@ use ncurses::{attr_t, A_BOLD};
 // Holds many messages waiting to be used
 pub struct MessageQueue {
     data: VecDeque<Message>,
-    closed: bool,            // Do we recycle data?
+    pub closed: bool,            // Do we recycle data?
 }
 
 impl MessageQueue {
@@ -46,11 +46,14 @@ impl MessageQueue {
 	    self.push(message);
 	}
     }
-    pub fn append(&mut self, messages: Vec<Message>){
-	self.data.append(&mut messages.into());
+    pub fn append(&mut self, mut messages: VecDeque<Message>){
+	self.data.append(&mut messages);
     }
-    pub fn append_update(&mut self, messages: Vec<Message>){
+    pub fn append_update(&mut self, messages: VecDeque<Message>){
 	messages.into_iter().for_each(|message| self.push_update(message));
+    }
+    pub fn drain(&mut self) -> VecDeque<Message> {
+	self.data.drain(..).collect::<VecDeque<Message>>()
     }
 }
 
