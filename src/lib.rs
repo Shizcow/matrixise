@@ -15,7 +15,7 @@ use std::sync::{Arc, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub fn init(){
     initscr();
@@ -41,7 +41,8 @@ struct ForkedScene { // the version of Scene that lives in another thread
     max_padding: i32,
     rx:          Option<std::sync::mpsc::Receiver<ThreadMsg>>,
     started:     bool,
-    speed:       Duration
+    speed:       Duration,
+    last_updated:Instant,
 }
 impl ForkedScene {
     pub fn new(max_padding: i32, background: i16, is_closed: bool, rx: std::sync::mpsc::Receiver<ThreadMsg>, speed: Duration) -> Self {
@@ -57,7 +58,7 @@ impl ForkedScene {
 	for _ in 0..width {
 	    columns.push(Column::new());
 	}
-	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx), started: false, speed}
+	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx), started: false, speed, last_updated: Instant::now()}
     }
     fn init(background: i16) -> attr_t { // ncurses initialize
 	let background_attr = 99; // NOTE: find a portabale value that users won't touch
@@ -84,25 +85,21 @@ impl ForkedScene {
 			if self.started == true {
 			    panic!("Tried to start screen twice!");
 			} else {
+			    self.last_updated = Instant::now();
 			    self.started = true;
 			}
-			return true;
 		    },
 		    ThreadMsg::Push(message) => {
 			self.queue.push(message);
-			return true;
 		    },
 		    ThreadMsg::PushUpdate(message) => {
 			self.queue.push_update(message);
-			return true;
 		    },
 		    ThreadMsg::Append(messages) => {
 			self.queue.append(messages);
-			return true;
 		    }
 		    ThreadMsg::AppendUpdate(messages) => {
 			self.queue.append_update(messages);
-			return true;
 		    }
 		    ThreadMsg::Kill => {
 			self.kill();
@@ -110,13 +107,10 @@ impl ForkedScene {
 		    },
 		}
 	    }
-	    Err(TryRecvError::Empty) => {
-		if self.started {
-		    thread::sleep(self.speed);
-		}
-	    }
-        }
-	if self.started {
+	    Err(TryRecvError::Empty) => {}
+	}
+	if self.started && self.last_updated.elapsed() >= self.speed {
+	    self.last_updated = Instant::now();
 	    self.advance();
 	}
 	true
