@@ -9,7 +9,9 @@
 
 use std::fmt;
 use std::collections::VecDeque;
-use ncurses::{attr_t, A_BOLD};
+use std::convert::TryInto;
+
+use pancurses::{chtype, A_BOLD, COLOR_PAIR};
 
 // MessageQueue struct
 // Holds many messages waiting to be used
@@ -62,11 +64,11 @@ pub type ColorString = Vec<ColorChar>;
 #[derive(Copy, Clone)]
 pub struct ColorChar {
     pub data: u32,
-    pub attr: attr_t
+    pub attr: chtype
 }
 
 impl ColorChar {
-    pub fn new(data: u32, attr: attr_t) -> Self {
+    pub fn new(data: u32, attr: chtype) -> Self {
 	Self{data, attr}
     }
 }
@@ -91,17 +93,18 @@ impl Message {
     pub fn new(contents: ColorString, id: &str) -> Self {
 	Self{contents, id: id.to_string()}
     }
-    pub fn new_simple(string: &str, color: attr_t, id: &str) -> Self {
+    pub fn new_simple(string: &str, pair: i16, id: &str) -> Self {
 	let mut contents = ColorString::with_capacity(string.len());
 	for i in 0..string.len() {
-	    contents.push(ColorChar::new(string.as_bytes()[i] as u32, color));
+	    contents.push(ColorChar::new(string.as_bytes()[i] as u32, COLOR_PAIR(pair.try_into().unwrap())));
 	}
 	Self::new(contents, id)
     }
-    pub fn new_with_title(title: &str, body: &str, color: attr_t, id: &str) -> Self { // creates new from body, title, and id
+    pub fn new_with_title(title: &str, body: &str, pair: i16, id: &str) -> Self { // creates new from body, title, and id
+	let color = COLOR_PAIR(pair.try_into().unwrap());
 	let mut contents = ColorString::with_capacity(title.len()+body.len());
 	for i in 0..title.len() {
-	    contents.push(ColorChar::new(title.as_bytes()[i] as u32, color | A_BOLD()));
+	    contents.push(ColorChar::new(title.as_bytes()[i] as u32, color | A_BOLD));
 	}
 	for i in 0..body.len() {
 	    contents.push(ColorChar::new(body.as_bytes()[i] as u32, color));

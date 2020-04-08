@@ -5,7 +5,7 @@
  */
 
 use rand::Rng;
-use ncurses::{attron, attroff, mvaddch, attr_t, erasechar, mv};
+use pancurses::Window;
 use crate::message::{MessageQueue, ColorString, ColorChar};
 
 // Streak struct
@@ -100,20 +100,17 @@ impl Streak {
 	}
 	Streak{head_x, head_y: 0, length, inner_text}
     }
-    pub fn render(&self, screen_height: i32) { // print contents to screen
+    pub fn render(&self, window: &Window) { // print contents to screen
 	for i in (self.head_y-self.length-1)..self.head_y {
-	    if i >= 0 && i < screen_height {
-		attron(self.inner_text[i as usize].attr);
-		mvaddch(i,self.head_x,self.inner_text[i as usize].data);
-		attroff(self.inner_text[i as usize].attr);
+	    if i >= 0 && i < window.get_max_y() {
+		window.attron(self.inner_text[i as usize].attr);
+		window.mvaddch(i,self.head_x,self.inner_text[i as usize].data);
+		window.attroff(self.inner_text[i as usize].attr);
 	    }
 	}
     }
-    pub fn derender(&self, attr: attr_t) { // removes first char, makes streak look like it's moving down
-	attron(attr);
-	mv(self.head_y-self.length-1, self.head_x);
-	erasechar();
-	attron(attr);
+    pub fn derender(&self, window: &Window) { // removes first char, makes streak look like it's moving down
+	window.mvaddch(self.head_y-self.length-1, self.head_x, window.getbkgd());
     }
     pub fn advance(&mut self) {
 	self.head_y+=1;

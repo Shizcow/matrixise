@@ -1,6 +1,6 @@
 [package]
 name = "matrixise"
-version = "1.1.0"
+version = "2.0.0"
 authors = ["Shizcow <pohl.devin@gmail.com>"]
 edition = "2018"
 license = "GPL-2.0+"
@@ -11,5 +11,5 @@ keywords = ["matrix", "cmatrix"]
 categories = ["command-line-interface", "command-line-utilities"]
 
 [dependencies]
-ncurses = "5.99.0"
+pancurses = "0.16.1"
 rand = "0.7.3"

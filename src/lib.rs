@@ -4,7 +4,7 @@ pub use crate::message::{Message, ColorString, ColorChar};
 mod streak;
 use crate::streak::Streak;
 
-use ncurses::*;
+pub use pancurses::*;
 
 extern crate rand;
 use rand::Rng;
@@ -16,40 +16,44 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-pub fn init(){
-    initscr();
-    curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
-    timeout(0);
-    start_color();
-}
-
 enum ThreadMsg {
     Kill,
     Start,
     Push(Message),
     PushUpdate(Message),
-    Append(Vec<Message>), 
+    Append(Vec<Message>),
     AppendUpdate(Vec<Message>),
+    ColorPair(i16, i16, i16)
 }
 
 struct ForkedScene { // the version of Scene that lives in another thread
     columns:     Vec<Column>,  // holds all streaks in the scene
     height:      i32,          // height of the scene
     queue:       MessageQueue, // Messages yet to be printed
-    background:  attr_t,       // used for derendering
     max_padding: i32,
     rx:          Option<std::sync::mpsc::Receiver<ThreadMsg>>,
     started:     bool,
     speed:       Duration,
     last_updated:Instant,
+    window:      Window,
 }
 impl ForkedScene {
     pub fn new(max_padding: i32, background: i16, is_closed: bool, rx: std::sync::mpsc::Receiver<ThreadMsg>, speed: Duration) -> Self {
-	// infer screen size
-	let bkg_attr = Self::init(background);
-	let mut height : i32 = 0;
-	let mut width  : i32 = 0;
-	getmaxyx(stdscr(), &mut height, &mut width);
+	let window = initscr();
+	
+	curs_set(0);
+	noecho();
+
+	if has_colors() {
+            start_color();
+	}
+	
+	window.nodelay(true);
+	init_pair(99, COLOR_BLACK, background);
+	window.bkgd(COLOR_PAIR(99));
+
+	let (height, width) = window.get_max_yx();
+	
 	if width == -1 {
 	    panic!("Could not get screen size!");
 	}
@@ -57,13 +61,7 @@ impl ForkedScene {
 	for _ in 0..width {
 	    columns.push(Column::new());
 	}
-	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), background: bkg_attr, max_padding, rx: Some(rx), started: false, speed, last_updated: Instant::now()}
-    }
-    fn init(background: i16) -> attr_t { // ncurses initialize
-	let background_attr = 99; // NOTE: find a portabale value that users won't touch
-	init_pair(background_attr, COLOR_BLACK, background);
-	bkgd(' ' as chtype | COLOR_PAIR(background_attr) as chtype);
-	COLOR_PAIR(background_attr)
+	Self{columns, height, queue: MessageQueue::new(width as usize, is_closed), max_padding, rx: Some(rx), started: false, speed, last_updated: Instant::now(), window: window}
     }
     pub fn kill(&self){
 	endwin();
@@ -84,26 +82,28 @@ impl ForkedScene {
 			if self.started == true {
 			    panic!("Tried to start screen twice!");
 			} else {
-			    self.last_updated = Instant::now();
-			    self.started = true;
+			    self.start();
 			}
-		    },
+		    }
 		    ThreadMsg::Push(message) => {
 			self.queue.push(message);
-		    },
+		    }
 		    ThreadMsg::PushUpdate(message) => {
 			self.queue.push_update(message);
-		    },
+		    }
 		    ThreadMsg::Append(messages) => {
 			self.queue.append(messages.into());
 		    }
 		    ThreadMsg::AppendUpdate(messages) => {
 			self.queue.append_update(messages.into());
 		    }
+		    ThreadMsg::ColorPair(pair, c1, c2) => {
+			init_pair(pair, c1, c2);
+		    }
 		    ThreadMsg::Kill => {
 			self.kill();
 			return false; // make sure main exits
-		    },
+		    }
 		}
 	    }
 	    Err(TryRecvError::Empty) => {}
@@ -114,12 +114,17 @@ impl ForkedScene {
 	}
 	true
     }
+    fn start(&mut self) {
+	self.window.refresh();
+	self.last_updated = Instant::now();
+	self.started = true;
+    }
     pub fn advance(&mut self){ // move all streaks, clean up dead ones, try to spawn new ones
 	let mut rng = rand::thread_rng();
 	let untouched = self.columns.iter().fold(0, |sum, column| sum + if column.touched  {0} else {1}); // counting untouched to make it progressively more likely to spawn a streak
 	for (i, column) in self.columns.iter_mut().enumerate() {
 	    for streak in &mut column.streaks { // advance all
-		streak.derender(self.background);
+		streak.derender(&self.window);
 		streak.advance();
 	    }
 	    let height = self.height; // always fighting with the borrow checker
@@ -136,23 +141,22 @@ impl ForkedScene {
 
 	    
 	    for streak in &mut column.streaks { // advance all
-		streak.render(self.height);
+		streak.render(&self.window);
 	    }
 	}
-	refresh();
+	self.window.refresh();
     }
     pub fn resize(&mut self) {
 	// first, update the term
-	let mut height : i32 = 0;
-	let mut width  : i32 = 0;
-	getmaxyx(stdscr(), &mut height, &mut width);
+	let height = self.window.get_max_y();
+	let width  = self.window.get_max_x();
 	if width == -1 {
 	    panic!("Could not get screen size!");
 	}
 	self.height = height;
-	resizeterm(height, width);
-	erase();
-	refresh();
+	resize_term(height, width);
+	self.window.erase();
+	self.window.refresh();
 	// Then, update columns
 	let drained = self.queue.drain();
 	self.queue.append(drained);
@@ -179,24 +183,28 @@ pub struct Scene {
 impl Scene {
     pub fn new(max_padding: i32, background: i16, is_closed: bool, speed: Duration) -> Self {
 	let (tx, rx) = mpsc::channel();
-	let mut background = ForkedScene::new(max_padding, background, is_closed, rx, speed);
 
 	let working = Arc::new(AtomicBool::new(true));
 	let control = Arc::downgrade(&working);
 
-	let join_handle = thread::spawn(move ||
-					while (*working).load(Ordering::Relaxed) {
-					    if is_term_resized(background.height, background.columns.len() as i32) {
-						background.resize();
-					    }
-					    if !background.update() {
-						break;
-					    }
-					    if getch() == 113 { // if q is pressed, exit
-						background.kill();
-						break;
-					    }
-					});
+	let join_handle = thread::spawn(move || {
+	    
+	    let mut background = ForkedScene::new(max_padding, background, is_closed, rx, speed);
+	    while (*working).load(Ordering::Relaxed) {
+		if !background.update() {
+		    break;
+		}
+		match background.window.getch() {
+		    Some(Input::Character(c)) => { if c == 'q' {
+			background.kill();
+			break;
+		    } },
+		    Some(Input::KeyDC) => break,
+		    Some(Input::KeyResize) => background.resize(),
+		    Some(_) => { panic!("I don't know what to do with this!"); },
+		    None => ()
+		}
+	    }});
 	
 	Self{tx: Some(tx), join_handle: Some(join_handle), thread_control: Some(control)}
     }
@@ -225,8 +233,10 @@ impl Scene {
 	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::AppendUpdate(messages));
     }
     pub fn start(&mut self){ // start and fork to background
-	refresh();
 	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::Start);
+    }
+    pub fn init_pair(&self, pair: i16, c1: i16, c2: i16){
+	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::ColorPair(pair.into(), c1, c2));	
     }
     pub fn alive(&self) -> bool { // ping the background thread to see if it's alive
 	self.thread_control.is_some() && self.thread_control.as_ref().unwrap().upgrade().is_some()
@@ -236,7 +246,7 @@ impl Scene {
 	    return;
 	}
 	let _ = self.tx.as_ref().unwrap().send(ThreadMsg::Kill);
-	let _ = self.join_handle.take().unwrap().join(); // give ncurses time to clean up
+	let _ = self.join_handle.take().unwrap().join(); // give curses time to clean up
 	self.join_handle = None;
 	self.tx = None;
     }
