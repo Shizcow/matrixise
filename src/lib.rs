@@ -134,7 +134,7 @@ impl ForkedScene {
 	    if column.streaks.len()==0 || column.streaks.iter().all(|streak| streak.top_space() > 5) { // check if there's need to
 		if (!column.touched && rng.gen_range(0, untouched) == 0) || column.touched { // if we started recently, thin things out to look better
 		// add new streak, consuming from queue
-		column.add_streak(Streak::new_with_queue(&mut self.queue, i as i32, rng.gen_range(5, self.height*2), self.height, self.max_padding));
+		column.add_streak(Streak::new_with_queue(&mut self.queue, i as i32, rng.gen_range(self.height/10, self.height*2), self.height, self.max_padding));
 		    
 		}
 	    }
